@@ -6,6 +6,7 @@
 #![no_std]
 
 use cortex_m_rt::entry;
+use embedded_hal::digital::InputPin;
 use panic_rtt_target as _;
 use rtt_target::{rprintln, rtt_init_print};
 
@@ -17,11 +18,13 @@ use microbit::{
 
 use lsm303agr::{AccelMode, AccelOutputDataRate, Lsm303agr};
 
-enum Mode {
+#[derive(core::fmt::Debug)]
+enum LevelMode {
     Coarse,
     Fine,
 }
 
+#[derive(core::fmt::Debug)]
 struct Point(i32, i32, i32);
 
 impl Point {
@@ -54,24 +57,40 @@ fn main() -> ! {
     let mut button_b = board.buttons.button_b;
 
     let fb: &mut Buf = &mut Default::default();
+    let mut mode = LevelMode::Coarse;
 
-    #[rustfmt::skip]
-    let i2c = twim::Twim::new(
-        board.TWIM0,
-        board.i2c_internal.into(),
-        FREQUENCY_A::K100);
+    let mut sensor = {
+        #[rustfmt::skip]
+        let i2c = twim::Twim::new(
+            board.TWIM0,
+            board.i2c_internal.into(),
+            FREQUENCY_A::K100);
 
-    let mut sensor = Lsm303agr::new_with_i2c(i2c);
-    sensor.init().unwrap();
-    sensor
-        .set_accel_mode_and_odr(
-            &mut timer,
-            AccelMode::HighResolution,
-            AccelOutputDataRate::Hz50,
-        )
-        .unwrap();
+        let mut sensor = Lsm303agr::new_with_i2c(i2c);
+        sensor.init().unwrap();
+        sensor
+            .set_accel_mode_and_odr(
+                &mut timer,
+                AccelMode::HighResolution,
+                AccelOutputDataRate::Hz50,
+            )
+            .unwrap();
+
+        sensor
+    };
 
     loop {
+        // poll button presses.
+        let a_pressed = button_a.is_low().unwrap();
+        let b_pressed = button_b.is_low().unwrap();
+
+        mode = match (a_pressed, b_pressed) {
+            (true, false) => LevelMode::Coarse,
+            (false, true) => LevelMode::Fine,
+            _ => mode,
+        };
+        rprintln!("Mode: {:?}", mode);
+
         if sensor.accel_status().unwrap().xyz_new_data() {
             let p = Point::new_inverted(sensor.acceleration().unwrap().xyz_mg());
             if p.z_up() {
