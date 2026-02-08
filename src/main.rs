@@ -110,6 +110,7 @@ fn main() -> ! {
 
         // Update bubble level at a rate of FRAME_TIME.
         if p.z_up() {
+            // Divide the display into five parts with size based on the mode.
             let (x, y) = match mode {
                 LevelMode::Coarse => {
                     let p = p.clamp(-500, 500).translate(500, 500, 500);
@@ -125,6 +126,8 @@ fn main() -> ! {
             display.show(&mut timer, *fb, FRAME_TIME);
             fb[y][x] = 0u8;
         } else {
+            // The display will clear itself after 200ms so that pixels have no
+            // chance of getting stuck on while the display is facing the ground.
             timer.delay_ms(FRAME_TIME);
         }
     }
