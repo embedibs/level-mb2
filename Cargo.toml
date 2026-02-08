@@ -7,7 +7,6 @@ edition = "2024"
 [dependencies]
 cortex-m-rt = "0.7"
 embedded-hal = "1.0.0"
-heapless = "0.9.2"
 lsm303agr = "1.1.0"
 microbit-v2 = "0.16"
 panic-halt = "1.0.0"
@@ -17,11 +16,6 @@ rtt-target = "0.6"
 [dependencies.cortex-m]
 version = "0.7"
 features = ["inline-asm", "critical-section-single-core"]
-
-[dependencies.num-traits]
-version = "0.2.19"
-default-features = false
-features = ["libm"]
 
 [[bin]]
 name = "level-mb2"
