@@ -114,11 +114,17 @@ fn main() -> ! {
             let (x, y) = match mode {
                 LevelMode::Coarse => {
                     let p = p.clamp(-500, 500).translate(500, 500, 500);
-                    ((p.0 / 250) as usize, 4 - (p.1 / 250) as usize)
+                    (
+                        (p.0 as f32 / 200.1) as usize,
+                        4 - (p.1 as f32 / 200.1) as usize,
+                    )
                 }
                 LevelMode::Fine => {
                     let p = p.clamp(-50, 50).translate(50, 50, 50);
-                    ((p.0 / 25) as usize, 4 - (p.1 / 25) as usize)
+                    (
+                        (p.0 as f32 / 20.1) as usize,
+                        4 - (p.1 as f32 / 20.1) as usize,
+                    )
                 }
             };
 
