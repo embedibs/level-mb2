@@ -6,9 +6,8 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use embedded_hal::digital::InputPin;
+use embedded_hal::{delay::DelayNs, digital::InputPin};
 use panic_rtt_target as _;
-use rtt_target::{rprintln, rtt_init_print};
 
 use microbit::{
     display::blocking::Display,
@@ -20,22 +19,36 @@ use lsm303agr::{AccelMode, AccelOutputDataRate, Lsm303agr};
 
 #[derive(core::fmt::Debug)]
 enum LevelMode {
+    /// Clamp display to [-500,500]
     Coarse,
+    /// Clamp display to [-50,50]
     Fine,
 }
 
-#[derive(core::fmt::Debug)]
+#[derive(core::fmt::Debug, Default)]
 struct Point(i32, i32, i32);
 
 impl Point {
     /// Create a new point reflected across the origin.
     pub fn new_inverted((x, y, z): (i32, i32, i32)) -> Self {
-        Self(-x, -y, -z)
+        Point(-x, -y, -z)
     }
 
     /// Return true if z-position is strictly positive.
     pub fn z_up(&self) -> bool {
         self.2 > 0
+    }
+
+    /// Return a new point clamped within [min,max] on all axes.
+    pub fn clamp(self, min: i32, max: i32) -> Self {
+        let Point(x, y, z) = self;
+        Point(x.clamp(min, max), y.clamp(min, max), z.clamp(min, max))
+    }
+
+    /// Return a new point translated.
+    pub fn translate(self, dx: i32, dy: i32, dz: i32) -> Self {
+        let Point(x, y, z) = self;
+        Point(x + dx, y + dy, z + dz)
     }
 }
 
@@ -47,7 +60,6 @@ type Buf = [[u8; 5]; 5];
 
 #[entry]
 fn main() -> ! {
-    rtt_init_print!();
     let board = microbit::Board::take().unwrap();
 
     let mut timer = Timer::new(board.TIMER0);
@@ -89,16 +101,31 @@ fn main() -> ! {
             (false, true) => LevelMode::Fine,
             _ => mode,
         };
-        rprintln!("Mode: {:?}", mode);
 
-        if sensor.accel_status().unwrap().xyz_new_data() {
-            let p = Point::new_inverted(sensor.acceleration().unwrap().xyz_mg());
-            if p.z_up() {
-                rprintln!("Acceleration: x {} y {} z {}", p.0, p.1, p.2);
-            }
+        let p: Point = if sensor.accel_status().unwrap().xyz_new_data() {
+            Point::new_inverted(sensor.acceleration().unwrap().xyz_mg())
+        } else {
+            continue;
+        };
+
+        // Update bubble level at a rate of FRAME_TIME.
+        if p.z_up() {
+            let (x, y) = match mode {
+                LevelMode::Coarse => {
+                    let p = p.clamp(-500, 500).translate(500, 500, 500);
+                    ((p.0 / 250) as usize, 4 - (p.1 / 250) as usize)
+                }
+                LevelMode::Fine => {
+                    let p = p.clamp(-50, 50).translate(50, 50, 50);
+                    ((p.0 / 25) as usize, 4 - (p.1 / 25) as usize)
+                }
+            };
+
+            fb[y][x] = 1u8;
+            display.show(&mut timer, *fb, FRAME_TIME);
+            fb[y][x] = 0u8;
+        } else {
+            timer.delay_ms(FRAME_TIME);
         }
-
-        // Update at a rate of FRAME_TIME.
-        display.show(&mut timer, *fb, FRAME_TIME);
     }
 }
