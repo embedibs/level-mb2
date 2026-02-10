@@ -105,17 +105,17 @@ fn main() -> ! {
             continue;
         };
 
-        // Update bubble level at a rate of FRAME_TIME.
-        if p.z_up() {
-            let (x, y) = p.to_pixel(&mode);
+        let px = p.z_up().then(|| p.to_pixel(&mode));
 
+        if let Some((x, y)) = px {
             fb[y][x] = 1u8;
-            display.show(&mut timer, *fb, FRAME_TIME);
+        }
+
+        // Update bubble level at a rate of FRAME_TIME.
+        display.show(&mut timer, *fb, FRAME_TIME);
+
+        if let Some((x, y)) = px {
             fb[y][x] = 0u8;
-        } else {
-            // The display will clear itself after 200ms so that pixels have no
-            // chance of getting stuck on while the display is facing the ground.
-            timer.delay_ms(FRAME_TIME);
         }
     }
 }
