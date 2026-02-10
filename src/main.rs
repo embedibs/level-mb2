@@ -30,25 +30,26 @@ struct Point(i32, i32, i32);
 
 impl Point {
     /// Create a new point reflected across the origin.
-    pub fn new_inverted((x, y, z): (i32, i32, i32)) -> Self {
+    fn new_inverted((x, y, z): (i32, i32, i32)) -> Self {
         Point(-x, -y, -z)
     }
 
     /// Return true if z-position is strictly positive.
-    pub fn z_up(&self) -> bool {
+    fn z_up(&self) -> bool {
         self.2 > 0
     }
 
-    /// Return a new point clamped within [min,max] on all axes.
-    pub fn clamp(self, min: i32, max: i32) -> Self {
-        let Point(x, y, z) = self;
-        Point(x.clamp(min, max), y.clamp(min, max), z.clamp(min, max))
-    }
+    /// Consume self and return pixel location.
+    fn to_pixel(self, mode: &LevelMode) -> (usize, usize) {
+        let Point(x, y, _) = self;
+        let (max, step) = match mode {
+            LevelMode::Coarse => (500, 200.1),
+            LevelMode::Fine => (50, 20.1),
+        };
 
-    /// Return a new point translated.
-    pub fn translate(self, dx: i32, dy: i32, dz: i32) -> Self {
-        let Point(x, y, z) = self;
-        Point(x + dx, y + dy, z + dz)
+        let (x, y) = (x.clamp(-max, max) + max, y.clamp(-max, max) + max);
+
+        ((x as f32 / step) as usize, 4 - (y as f32 / step) as usize)
     }
 }
 
@@ -71,25 +72,21 @@ fn main() -> ! {
     let fb: &mut Buf = &mut Default::default();
     let mut mode = LevelMode::Coarse;
 
-    let mut sensor = {
-        #[rustfmt::skip]
-        let i2c = twim::Twim::new(
-            board.TWIM0,
-            board.i2c_internal.into(),
-            FREQUENCY_A::K100);
+    #[rustfmt::skip]
+    let i2c = twim::Twim::new(
+        board.TWIM0,
+        board.i2c_internal.into(),
+        FREQUENCY_A::K100);
 
-        let mut sensor = Lsm303agr::new_with_i2c(i2c);
-        sensor.init().unwrap();
-        sensor
-            .set_accel_mode_and_odr(
-                &mut timer,
-                AccelMode::HighResolution,
-                AccelOutputDataRate::Hz50,
-            )
-            .unwrap();
-
-        sensor
-    };
+    let mut sensor = Lsm303agr::new_with_i2c(i2c);
+    sensor.init().unwrap();
+    sensor
+        .set_accel_mode_and_odr(
+            &mut timer,
+            AccelMode::HighResolution,
+            AccelOutputDataRate::Hz50,
+        )
+        .unwrap();
 
     loop {
         // poll button presses.
@@ -110,23 +107,7 @@ fn main() -> ! {
 
         // Update bubble level at a rate of FRAME_TIME.
         if p.z_up() {
-            // Divide the display into five parts with size based on the mode.
-            let (x, y) = match mode {
-                LevelMode::Coarse => {
-                    let p = p.clamp(-500, 500).translate(500, 500, 500);
-                    (
-                        (p.0 as f32 / 200.1) as usize,
-                        4 - (p.1 as f32 / 200.1) as usize,
-                    )
-                }
-                LevelMode::Fine => {
-                    let p = p.clamp(-50, 50).translate(50, 50, 50);
-                    (
-                        (p.0 as f32 / 20.1) as usize,
-                        4 - (p.1 as f32 / 20.1) as usize,
-                    )
-                }
-            };
+            let (x, y) = p.to_pixel(&mode);
 
             fb[y][x] = 1u8;
             display.show(&mut timer, *fb, FRAME_TIME);
