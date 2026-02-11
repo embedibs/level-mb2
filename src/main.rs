@@ -6,7 +6,7 @@
 #![no_std]
 
 use cortex_m_rt::entry;
-use embedded_hal::{delay::DelayNs, digital::InputPin};
+use embedded_hal::digital::InputPin;
 use panic_rtt_target as _;
 
 use microbit::{
@@ -42,14 +42,21 @@ impl Point {
     /// Consume self and return pixel location.
     fn to_pixel(self, mode: &LevelMode) -> (usize, usize) {
         let Point(x, y, _) = self;
+        let (x, y) = (x as f32, y as f32);
+
         let (max, step) = match mode {
-            LevelMode::Coarse => (500, 200.1),
-            LevelMode::Fine => (50, 20.1),
+            LevelMode::Coarse => (500.0, 200.0),
+            LevelMode::Fine => (50.0, 20.0),
         };
 
-        let (x, y) = (x.clamp(-max, max) + max, y.clamp(-max, max) + max);
+        let (x, y) = (
+            // Clamp on the half open interval [-max,max) then shift.
+            // Could also scale f32::EPSILON by max.
+            x.clamp(-max, max - 0.01) + max,
+            y.clamp(-max, max - 0.01) + max,
+        );
 
-        ((x as f32 / step) as usize, 4 - (y as f32 / step) as usize)
+        ((x / step) as usize, 4 - (y / step) as usize)
     }
 }
 
