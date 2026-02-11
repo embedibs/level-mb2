@@ -58,6 +58,24 @@ impl Point {
 
         ((x / width) as usize, 4 - (y / width) as usize)
     }
+
+    #[allow(unused)]
+    /// Consume self and return pixel location.
+    fn to_pixel2(self, mode: &LevelMode) -> (usize, usize) {
+        let Point(x, y, _) = self;
+        let width = match mode {
+            LevelMode::Coarse => 200.0,
+            LevelMode::Fine => 20.0,
+        };
+
+        #[rustfmt::skip]
+        let (x, y) = (
+            (x as f32 / width) + 2.0,
+            (y as f32 / width) + 2.0,
+        );
+
+        (x.clamp(0.0, 4.0) as usize, 4 - y.clamp(0.0, 4.0) as usize)
+    }
 }
 
 /// 200ms or 5 frames per second.
