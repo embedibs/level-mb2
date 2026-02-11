@@ -9,6 +9,10 @@ use cortex_m_rt::entry;
 use embedded_hal::digital::InputPin;
 use panic_rtt_target as _;
 
+#[allow(unused)]
+// enable default.rtt in Embed.toml
+use rtt_target::{rprintln, rtt_init_print};
+
 use microbit::{
     display::blocking::Display,
     hal::{Timer, twim},
@@ -28,6 +32,7 @@ enum LevelMode {
 #[derive(core::fmt::Debug, Default)]
 struct Point(i32, i32, i32);
 
+#[allow(unused)]
 impl Point {
     /// Create a new point reflected across the origin.
     fn new_inverted((x, y, z): (i32, i32, i32)) -> Self {
@@ -59,7 +64,6 @@ impl Point {
         ((x / width) as usize, 4 - (y / width) as usize)
     }
 
-    #[allow(unused)]
     /// Consume self and return pixel location.
     fn to_pixel2(self, mode: &LevelMode) -> (usize, usize) {
         let Point(x, y, _) = self;
@@ -70,8 +74,8 @@ impl Point {
 
         #[rustfmt::skip]
         let (x, y) = (
-            (x as f32 / width) + 2.0,
-            (y as f32 / width) + 2.0,
+            (x as f32 / width) + 2.5,
+            (y as f32 / width) + 2.5,
         );
 
         (x.clamp(0.0, 4.0) as usize, 4 - y.clamp(0.0, 4.0) as usize)
