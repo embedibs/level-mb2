@@ -44,7 +44,7 @@ impl Point {
         let Point(x, y, _) = self;
         let (x, y) = (x as f32, y as f32);
 
-        let (max, step) = match mode {
+        let (max, width) = match mode {
             LevelMode::Coarse => (500.0, 200.0),
             LevelMode::Fine => (50.0, 20.0),
         };
@@ -56,7 +56,7 @@ impl Point {
             y.clamp(-max, max - 0.01) + max,
         );
 
-        ((x / step) as usize, 4 - (y / step) as usize)
+        ((x / width) as usize, 4 - (y / width) as usize)
     }
 }
 
